@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jogo de Damas</title>
+    <style>
+        .tabuleiro {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+            gap: 0;
+            border: 2px solid #000;
+            width: fit-content;
+            margin: 20px auto; /* Centraliza o tabuleiro */
+        }
+
+        .casa {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            box-sizing: border-box; /* Garante que padding não afete dimensões */
+        }
+
+        .casa-clara {
+            background-color: #f0d9b5; /* Cor mais agradável para casas claras */
+        }
+
+        .casa-escura {
+            background-color: #b58863; /* Cor mais agradável para casas escuras */
+        }
+
+        .peca {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #000;
+            position: absolute;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); /* Adiciona sombra às peças */
+        }
+
+        .peca-jogador {
+            background-color: #dc3545; /* Vermelho mais agradável */
+        }
+
+        .peca-robo {
+            background-color: #212529; /* Preto mais suave */
+        }
+
+        .peca.dama {
+            border: 4px double gold;
+            box-shadow: 0 0 10px gold; /* Brilho para damas */
+        }
+
+        .selecionada {
+            background-color: rgba(255, 255, 0, 0.5) !important;
+            box-shadow: inset 0 0 10px rgba(255, 255, 0, 0.8);
+        }
+
+        .movimento-valido {
+            background-color: rgba(76, 175, 80, 0.3);
+            box-shadow: inset 0 0 5px rgba(76, 175, 80, 0.5);
+        }
+
+        .mensagem {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            font-size: 24px;
+            border-radius: 10px;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        /* Adiciona container para centralizar todo o conteúdo */
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Adiciona título ao jogo */
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        /* Adiciona indicador de vez */
+        .vez-indicador {
+            margin: 10px 0;
+            font-size: 18px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Jogo de Damas</h1>
+        <div class="vez-indicador" id="vezIndicador">Vez do Jogador</div>
+        <div id="tabuleiro" class="tabuleiro"></div>
+    </div>
+    <div id="mensagemVitoria" class="mensagem">Você ganhou! 🎉</div>
+    <div id="mensagemDerrota" class="mensagem">Você perdeu! 😢</div>
+    <div id="mensagemEmpate" class="mensagem">Empate! 🤝</div>
+
+    <script>
+        let tabuleiro = [];
+        let vezJogador = true;
+        let pecaSelecionada = null;
+        let movimentosValidos = [];
+        let casasSelecionadas = [];
+
+        function verificarMovimentosDisponiveis(tipo) {
+            for(let i = 0; i < 8; i++) {
+                for(let j = 0; j < 8; j++) {
+                    if(tabuleiro[i][j] && tabuleiro[i][j].tipo === tipo) {
+                        let movimentos = verificarMovimentosValidos(i, j);
+                        if(movimentos.length > 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function mostrarEmpate() {
+            document.getElementById('mensagemEmpate').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('mensagemEmpate').style.display = 'none';
+                inicializarTabuleiro();
+                renderizarTabuleiro();
+                vezJogador = true;
+                atualizarIndicadorVez();
+            }, 3000);
+        }
+
+        function verificarFimDeJogo() {
+            let pecasJogador = 0;
+            let pecasRobo = 0;
+
+            for(let i = 0; i < 8; i++) {
+                for(let j = 0; j < 8; j++) {
+                    if(tabuleiro[i][j]) {
+                        if(tabuleiro[i][j].tipo === 'jogador') {
+                            pecasJogador++;
+                        } else {
+                            pecasRobo++;
+                        }
+                    }
+                }
+            }
+
+            if(pecasJogador === 0) {
+                mostrarDerrota();
+                return true;
+            } else if(pecasRobo === 0) {
+                mostrarVitoria();
+                return true;
+            }
+
+            let jogadorTemMovimentos = verificarMovimentosDisponiveis('jogador');
+            let roboTemMovimentos = verificarMovimentosDisponiveis('robo');
+
+            if(!jogadorTemMovimentos && !roboTemMovimentos) {
+                mostrarEmpate();
+                return true;
+            } else if(!jogadorTemMovimentos && roboTemMovimentos) {
+                mostrarDerrota();
+                return true;
+            } else if(jogadorTemMovimentos && !roboTemMovimentos) {
+                mostrarVitoria();
+                return true;
+            }
+
+            return false;
+        }
+
+        function mostrarVitoria() {
+            document.getElementById('mensagemVitoria').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('mensagemVitoria').style.display = 'none';
+                inicializarTabuleiro();
+                renderizarTabuleiro();
+                vezJogador = true;
+                atualizarIndicadorVez();
+            }, 3000);
+        }
+
+        function mostrarDerrota() {
+            document.getElementById('mensagemDerrota').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('mensagemDerrota').style.display = 'none';
+                inicializarTabuleiro();
+                renderizarTabuleiro();
+                vezJogador = true;
+                atualizarIndicadorVez();
+            }, 3000);
+        }
+
+        function limparSelecoes() {
+            casasSelecionadas.forEach(casa => {
+                casa.classList.remove('selecionada');
+                casa.classList.remove('movimento-valido');
+            });
+            casasSelecionadas = [];
+        }
+
+        function inicializarTabuleiro() {
+            tabuleiro = [];
+            for(let i = 0; i < 8; i++) {
+                tabuleiro[i] = [];
+                for(let j = 0; j < 8; j++) {
+                    tabuleiro[i][j] = null;
+                }
+            }
+
+            for(let i = 0; i < 3; i++) {
+                for(let j = 0; j < 8; j++) {
+                    if((i + j) % 2 === 1) {
+                        tabuleiro[i][j] = {tipo: 'jogador', dama: false};
+                    }
+                }
+            }
+
+            for(let i = 5; i < 8; i++) {
+                for(let j = 0; j < 8; j++) {
+                    if((i + j) % 2 === 1) {
+                        tabuleiro[i][j] = {tipo: 'robo', dama: false};
+                    }
+                }
+            }
+        }
+
+        function dentroDoTabuleiro(linha, coluna) {
+            return linha >= 0 && linha < 8 && coluna >= 0 && coluna < 8;
+        }
+
+        function verificarMovimentosValidos(linha, coluna) {
+            let movimentos = [];
+            let peca = tabuleiro[linha][coluna];
+            let direcoes = peca.dama ? [-1, 1] : (peca.tipo === 'jogador' ? [1] : [-1]);
+
+            // Primeiro verifica capturas obrigatórias
+            let temCaptura = false;
+            for(let dirLinha of direcoes) {
+                for(let dirColuna of [-1, 1]) {
+                    if(dentroDoTabuleiro(linha + 2 * dirLinha, coluna + 2 * dirColuna)) {
+                        if(tabuleiro[linha + dirLinha][coluna + dirColuna] && 
+                           tabuleiro[linha + dirLinha][coluna + dirColuna].tipo !== peca.tipo &&
+                           !tabuleiro[linha + 2 * dirLinha][coluna + 2 * dirColuna]) {
+                            temCaptura = true;
+                            movimentos.push({
+                                linha: linha + 2 * dirLinha,
+                                coluna: coluna + 2 * dirColuna,
+                                captura: true,
+                                capturaLinha: linha + dirLinha,
+                                capturaColuna: coluna + dirColuna
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Se não houver capturas, verifica movimentos normais
+            if(!temCaptura) {
+                for(let dirLinha of direcoes) {
+                    for(let dirColuna of [-1, 1]) {
+                        if(dentroDoTabuleiro(linha + dirLinha, coluna + dirColuna)) {
+                            if(!tabuleiro[linha + dirLinha][coluna + dirColuna]) {
+                                movimentos.push({
+                                    linha: linha + dirLinha,
+                                    coluna: coluna + dirColuna,
+                                    captura: false
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            return movimentos;
+        }
+
+        function moverPeca(origemLinha, origemColuna, destinoLinha, destinoColuna) {
+            let movimento = movimentosValidos.find(m => 
+                m.linha === destinoLinha && m.coluna === destinoColuna
+            );
+
+            if(!movimento) return false;
+
+            tabuleiro[destinoLinha][destinoColuna] = tabuleiro[origemLinha][origemColuna];
+            tabuleiro[origemLinha][origemColuna] = null;
+
+            if(movimento.captura) {
+                tabuleiro[movimento.capturaLinha][movimento.capturaColuna] = null;
+            }
+
+            if(destinoLinha === 7 && tabuleiro[destinoLinha][destinoColuna].tipo === 'jogador' ||
+               destinoLinha === 0 && tabuleiro[destinoLinha][destinoColuna].tipo === 'robo') {
+                tabuleiro[destinoLinha][destinoColuna].dama = true;
+            }
+
+            verificarFimDeJogo();
+            return true;
+        }
+
+        function avaliarTabuleiro() {
+            let pontuacao = 0;
+            for(let i = 0; i < 8; i++) {
+                for(let j = 0; j < 8; j++) {
+                    if(tabuleiro[i][j]) {
+                        if(tabuleiro[i][j].tipo === 'robo') {
+                            pontuacao += tabuleiro[i][j].dama ? 15 : 10;
+                            if(j >= 2 && j <= 5) pontuacao += 2;
+                            if(j === 0 || j === 7) pontuacao += 3;
+                            pontuacao += (7 - i);
+                        } else {
+                            pontuacao -= tabuleiro[i][j].dama ? 15 : 10;
+                            if(i === 6 || i === 7) pontuacao -= 5;
+                        }
+                    }
+                }
+            }
+            return pontuacao;
+        }
+
+        function minimax(profundidade, maximizando, alfa, beta) {
+            if(profundidade === 0) return avaliarTabuleiro();
+
+            if(maximizando) {
+                let maxPontuacao = -Infinity;
+                for(let i = 0; i < 8; i++) {
+                    for(let j = 0; j < 8; j++) {
+                        if(tabuleiro[i][j] && tabuleiro[i][j].tipo === 'robo') {
+                            let movimentos = verificarMovimentosValidos(i, j);
+                            for(let movimento of movimentos) {
+                                let pecaTemp = tabuleiro[i][j];
+                                let pecaCapturada = movimento.captura ? 
+                                    tabuleiro[movimento.capturaLinha][movimento.capturaColuna] : null;
+                                
+                                tabuleiro[movimento.linha][movimento.coluna] = pecaTemp;
+                                tabuleiro[i][j] = null;
+                                if(movimento.captura) {
+                                    tabuleiro[movimento.capturaLinha][movimento.capturaColuna] = null;
+                                }
+
+                                let pontuacao = minimax(profundidade - 1, false, alfa, beta);
+
+                                tabuleiro[i][j] = pecaTemp;
+                                tabuleiro[movimento.linha][movimento.coluna] = null;
+                                if(movimento.captura) {
+                                    tabuleiro[movimento.capturaLinha][movimento.capturaColuna] = pecaCapturada;
+                                }
+
+                                maxPontuacao = Math.max(maxPontuacao, pontuacao);
+                                alfa = Math.max(alfa, pontuacao);
+                                if(beta <= alfa) break;
+                            }
+                        }
+                    }
+                }
+                return maxPontuacao;
+            } else {
+                let minPontuacao = Infinity;
+                for(let i = 0; i < 8; i++) {
+                    for(let j = 0; j < 8; j++) {
+                        if(tabuleiro[i][j] && tabuleiro[i][j].tipo === 'jogador') {
+                            let movimentos = verificarMovimentosValidos(i, j);
+                            for(let movimento of movimentos) {
+                                let pecaTemp = tabuleiro[i][j];
+                                let pecaCapturada = movimento.captura ? 
+                                    tabuleiro[movimento.capturaLinha][movimento.capturaColuna] : null;
+                                
+                                tabuleiro[movimento.linha][movimento.coluna] = pecaTemp;
+                                tabuleiro[i][j] = null;
+                                if(movimento.captura) {
+                                    tabuleiro[movimento.capturaLinha][movimento.capturaColuna] = null;
+                                }
+
+                                let pontuacao = minimax(profundidade - 1, true, alfa, beta);
+
+                                tabuleiro[i][j] = pecaTemp;
+                                tabuleiro[movimento.linha][movimento.coluna] = null;
+                                if(movimento.captura) {
+                                    tabuleiro[movimento.capturaLinha][movimento.capturaColuna] = pecaCapturada;
+                                }
+
+                                minPontuacao = Math.min(minPontuacao, pontuacao);
+                                beta = Math.min(beta, pontuacao);
+                                if(beta <= alfa) break;
+                            }
+                        }
+                    }
+                }
+                return minPontuacao;
+            }
+        }
+
+        function jogadaRobo() {
+            let melhorJogada = null;
+            let melhorPontuacao = -Infinity;
+
+            for(let i = 0; i < 8; i++) {
+                for(let j = 0; j < 8; j++) {
+                    if(tabuleiro[i][j] && tabuleiro[i][j].tipo === 'robo') {
+                        let movimentos = verificarMovimentosValidos(i, j);
+                        
+                        for(let movimento of movimentos) {
+                            let pecaTemp = tabuleiro[i][j];
+                            let pecaCapturada = movimento.captura ? 
+                                tabuleiro[movimento.capturaLinha][movimento.capturaColuna] : null;
+                            
+                            tabuleiro[movimento.linha][movimento.coluna] = pecaTemp;
+                            tabuleiro[i][j] = null;
+                            if(movimento.captura) {
+                                tabuleiro[movimento.capturaLinha][movimento.capturaColuna] = null;
+                            }
+
+                            let pontuacao = minimax(3, false, -Infinity, Infinity);
+
+                            tabuleiro[i][j] = pecaTemp;
+                            tabuleiro[movimento.linha][movimento.coluna] = null;
+                            if(movimento.captura) {
+                                tabuleiro[movimento.capturaLinha][movimento.capturaColuna] = pecaCapturada;
+                            }
+
+                            if(pontuacao > melhorPontuacao || 
+                              (pontuacao === melhorPontuacao && movimento.captura)) {
+                                melhorPontuacao = pontuacao;
+                                melhorJogada = {
+                                    origemLinha: i,
+                                    origemColuna: j,
+                                    linha: movimento.linha,
+                                    coluna: movimento.coluna
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
+            if(melhorJogada) {
+                movimentosValidos = verificarMovimentosValidos(melhorJogada.origemLinha, melhorJogada.origemColuna);
+                moverPeca(
+                    melhorJogada.origemLinha,
+                    melhorJogada.origemColuna,
+                    melhorJogada.linha,
+                    melhorJogada.coluna
+                );
+                return true;
+            }
+            return false;
+        }
+
+        function atualizarIndicadorVez() {
+            document.getElementById('vezIndicador').textContent = 
+                vezJogador ? "Sua vez" : "Vez do computador";
+        }
+
+        function renderizarTabuleiro() {
+            let tabuleiroElement = document.getElementById('tabuleiro');
+            tabuleiroElement.innerHTML = '';
+            
+            for(let i = 0; i < 8; i++) {
+                for(let j = 0; j < 8; j++) {
+                    let casa = document.createElement('div');
+                    casa.className = `casa ${(i + j) % 2 === 0 ? 'casa-clara' : 'casa-escura'}`;
+                    
+                    if(tabuleiro[i][j]) {
+                        let peca = document.createElement('div');
+                        peca.className = `peca peca-${tabuleiro[i][j].tipo}`;
+                        if(tabuleiro[i][j].dama) peca.classList.add('dama');
+                        casa.appendChild(peca);
+                    }
+
+                    casa.dataset.linha = i;
+                    casa.dataset.coluna = j;
+                    
+                    casa.addEventListener('click', handleClick);
+                    tabuleiroElement.appendChild(casa);
+
+                    if(pecaSelecionada && movimentosValidos.some(m => m.linha === i && m.coluna === j)) {
+                        casa.classList.add('movimento-valido');
+                        casasSelecionadas.push(casa);
+                    }
+                }
+            }
+
+            if(pecaSelecionada) {
+                let casaSelecionada = tabuleiroElement.children[pecaSelecionada.linha * 8 + pecaSelecionada.coluna];
+                casaSelecionada.classList.add('selecionada');
+                casasSelecionadas.push(casaSelecionada);
+            }
+
+            atualizarIndicadorVez();
+        }
+
+        function handleClick(event) {
+            if(!vezJogador) return;
+
+            let linha = parseInt(event.currentTarget.dataset.linha);
+            let coluna = parseInt(event.currentTarget.dataset.coluna);
+
+            limparSelecoes();
+
+            if(pecaSelecionada) {
+                let origemLinha = pecaSelecionada.linha;
+                let origemColuna = pecaSelecionada.coluna;
+
+                if(moverPeca(origemLinha, origemColuna, linha, coluna)) {
+                    pecaSelecionada = null;
+                    movimentosValidos = [];
+                    vezJogador = false;
+                    renderizarTabuleiro();
+                    
+                    setTimeout(function() {
+                        if(jogadaRobo()) {
+                            vezJogador = true;
+                            renderizarTabuleiro();
+                        }
+                    }, 500);
+                } else if(tabuleiro[linha][coluna] && tabuleiro[linha][coluna].tipo === 'jogador') {
+                    pecaSelecionada = {linha, coluna};
+                    movimentosValidos = verificarMovimentosValidos(linha, coluna);
+                    renderizarTabuleiro();
+                } else {
+                    pecaSelecionada = null;
+                    movimentosValidos = [];
+                    renderizarTabuleiro();
+                }
+            } else if(tabuleiro[linha][coluna] && tabuleiro[linha][coluna].tipo === 'jogador') {
+                pecaSelecionada = {linha, coluna};
+                movimentosValidos = verificarMovimentosValidos(linha, coluna);
+                renderizarTabuleiro();
+            }
+        }
+
+        inicializarTabuleiro();
+        renderizarTabuleiro();
+    </script>
+</body>
+</html>
